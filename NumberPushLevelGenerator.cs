@@ -132,6 +132,10 @@ namespace NovaWright.NumberPush.LevelGenerator
                             diagnostics);
                     }
 
+                    CalculateInitialPlayerAccessBlocks(
+    candidate,
+    diagnostics);
+
                     bool noReachableGoals;
                     int failedCrateDistance;
 
@@ -486,6 +490,8 @@ namespace NovaWright.NumberPush.LevelGenerator
 
             return goalDistances;
         }
+
+
 
         private bool CanCratesReachDistinctGoals(
     NumberPushLevel level,
@@ -1209,6 +1215,243 @@ namespace NovaWright.NumberPush.LevelGenerator
                     }
                 }
             }
+        }
+
+        private void CalculateInitialPlayerAccessBlocks(
+    NumberPushLevel level,
+    NumberPushGenerationDiagnostics diagnostics)
+        {
+            diagnostics.InitialPlayerAccessBlockPairs = 0;
+            diagnostics.InitialPlayerAccessBlocks.Clear();
+
+            Point[] directions =
+            {
+        new Point(0, -1),
+        new Point(0, 1),
+        new Point(-1, 0),
+        new Point(1, 0)
+    };
+
+            List<Point> cratePositions =
+                level.Crates
+                    .Select(crate => crate.Position)
+                    .ToList();
+
+            Point playerStart =
+                level.PlayerStart;
+
+            for (int targetCrateIndex = 0;
+                 targetCrateIndex < level.Crates.Count;
+                 targetCrateIndex++)
+            {
+                NumberPushCrate targetCrate =
+                    level.Crates[targetCrateIndex];
+
+                foreach (Point direction in directions)
+                {
+                    Point requiredPlayerPosition =
+                        new Point(
+                            targetCrate.Position.X -
+                                direction.X,
+                            targetCrate.Position.Y -
+                                direction.Y);
+
+                    Point crateDestination =
+                        new Point(
+                            targetCrate.Position.X +
+                                direction.X *
+                                    targetCrate.Distance,
+                            targetCrate.Position.Y +
+                                direction.Y *
+                                    targetCrate.Distance);
+
+                    bool destinationBlocked =
+                        false;
+
+                    for (int step = 1;
+                         step <= targetCrate.Distance;
+                         step++)
+                    {
+                        Point position =
+                            new Point(
+                                targetCrate.Position.X +
+                                    direction.X * step,
+                                targetCrate.Position.Y +
+                                    direction.Y * step);
+
+                        if (level.Walls.Contains(
+                                new Rectangle(
+                                    position.X,
+                                    position.Y,
+                                    1,
+                                    1)))
+                        {
+                            destinationBlocked = true;
+                            break;
+                        }
+
+                        for (int crateIndex = 0;
+                             crateIndex < cratePositions.Count;
+                             crateIndex++)
+                        {
+                            if (crateIndex ==
+                                targetCrateIndex)
+                            {
+                                continue;
+                            }
+
+                            if (cratePositions[crateIndex] ==
+                                position)
+                            {
+                                destinationBlocked = true;
+                                break;
+                            }
+                        }
+
+                        if (destinationBlocked)
+                        {
+                            break;
+                        }
+                    }
+
+                    if (destinationBlocked)
+                    {
+                        continue;
+                    }
+
+                    bool initiallyReachable =
+                        CanPlayerReachPosition(
+                            level,
+                            playerStart,
+                            requiredPlayerPosition,
+                            cratePositions);
+
+                    if (initiallyReachable)
+                    {
+                        continue;
+                    }
+
+                    for (int blockingCrateIndex = 0;
+                         blockingCrateIndex < level.Crates.Count;
+                         blockingCrateIndex++)
+                    {
+                        if (blockingCrateIndex ==
+                            targetCrateIndex)
+                        {
+                            continue;
+                        }
+
+                        List<Point> positionsWithoutBlocker =
+                            cratePositions
+                                .Where(
+                                    (position, index) =>
+                                        index !=
+                                        blockingCrateIndex)
+                                .ToList();
+
+                        bool reachableWithoutBlocker =
+                            CanPlayerReachPosition(
+                                level,
+                                playerStart,
+                                requiredPlayerPosition,
+                                positionsWithoutBlocker);
+
+                        if (!reachableWithoutBlocker)
+                        {
+                            continue;
+                        }
+
+                        string key =
+                            $"{blockingCrateIndex}:{targetCrateIndex}";
+
+                        if (diagnostics.InitialPlayerAccessBlocks.Add(
+                                key))
+                        {
+                            diagnostics.InitialPlayerAccessBlockPairs++;
+                        }
+                    }
+                }
+            }
+        }
+
+        private bool CanPlayerReachPosition(
+    NumberPushLevel level,
+    Point playerStart,
+    Point targetPosition,
+    List<Point> cratePositions)
+        {
+            if (playerStart == targetPosition)
+            {
+                return true;
+            }
+
+            HashSet<Point> visited =
+                new HashSet<Point>();
+
+            Queue<Point> queue =
+                new Queue<Point>();
+
+            visited.Add(
+                playerStart);
+
+            queue.Enqueue(
+                playerStart);
+
+            Point[] directions =
+            {
+        new Point(0, -1),
+        new Point(0, 1),
+        new Point(-1, 0),
+        new Point(1, 0)
+    };
+
+            while (queue.Count > 0)
+            {
+                Point current =
+                    queue.Dequeue();
+
+                foreach (Point direction in directions)
+                {
+                    Point next =
+                        new Point(
+                            current.X + direction.X,
+                            current.Y + direction.Y);
+
+                    if (visited.Contains(next))
+                    {
+                        continue;
+                    }
+
+                    bool blockedByWall =
+                        level.Walls.Any(
+                            wall =>
+                                wall.Contains(next));
+
+                    if (blockedByWall)
+                    {
+                        continue;
+                    }
+
+                    bool blockedByCrate =
+                        cratePositions.Contains(next);
+
+                    if (blockedByCrate &&
+                        next != targetPosition)
+                    {
+                        continue;
+                    }
+
+                    if (next == targetPosition)
+                    {
+                        return true;
+                    }
+
+                    visited.Add(next);
+                    queue.Enqueue(next);
+                }
+            }
+
+            return false;
         }
 
         // Diagnostic only.
