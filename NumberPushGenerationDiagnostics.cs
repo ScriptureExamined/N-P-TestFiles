@@ -109,6 +109,10 @@
         public int SolutionPlayerAccessBlockMoves { get; set; }
         public Dictionary<int, HashSet<int>> SolutionPlayerAccessBlocks { get; set; } = new();
 
+        public int InitialPlayerAccessBlockPairs { get; set; }
+
+        public HashSet<string> InitialPlayerAccessBlocks { get; set; } = new();
+
         public long CandidateGenerationMilliseconds { get; set; }
 
         public long SolverMilliseconds { get; set; }
@@ -284,6 +288,21 @@
     "SOLUTION OPPORTUNITIES\r\n" +
     $"Opportunity pairs: {SolutionOpportunityPairs}\r\n" +
     $"Opportunity blocks: {SolutionOpportunityBlocks}\r\n";
+
+            report +=
+            report +=
+"\r\n" +
+"INITIAL PLAYER ACCESS BLOCKS\r\n" +
+$"Initial player access block pairs: {InitialPlayerAccessBlockPairs}\r\n";
+
+            foreach (string block in
+                     InitialPlayerAccessBlocks.OrderBy(
+                         value => value))
+            {
+                report +=
+                    block +
+                    "\r\n";
+            }
 
             report +=
     "\r\n" +
