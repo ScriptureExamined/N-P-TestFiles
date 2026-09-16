@@ -136,49 +136,49 @@ namespace NovaWright.NumberPush.LevelGenerator
     candidate,
     diagnostics);
 
-                    bool noReachableGoals;
-                    int failedCrateDistance;
+                    //bool noReachableGoals;
+                    //int failedCrateDistance;
 
-                    if (!CanCratesReachDistinctGoals(
-                            candidate,
-                            out noReachableGoals,
-                            out failedCrateDistance))
-                    {
-                        if (diagnostics != null)
-                        {
-                            diagnostics.PreSolverRejectedCandidates++;
+                    //if (!CanCratesReachDistinctGoals(
+                    //        candidate,
+                    //        out noReachableGoals,
+                    //        out failedCrateDistance))
+                    //{
+                    //    if (diagnostics != null)
+                    //    {
+                    //        diagnostics.PreSolverRejectedCandidates++;
 
-                            if (noReachableGoals)
-                            {
-                                diagnostics.PreSolverNoReachableGoals++;
+                    //        if (noReachableGoals)
+                    //        {
+                    //            diagnostics.PreSolverNoReachableGoals++;
 
-                                switch (failedCrateDistance)
-                                {
-                                    case 1:
-                                        diagnostics.PreSolverFailedCrateDistance1++;
-                                        break;
+                    //            switch (failedCrateDistance)
+                    //            {
+                    //                case 1:
+                    //                    diagnostics.PreSolverFailedCrateDistance1++;
+                    //                    break;
 
-                                    case 2:
-                                        diagnostics.PreSolverFailedCrateDistance2++;
-                                        break;
+                    //                case 2:
+                    //                    diagnostics.PreSolverFailedCrateDistance2++;
+                    //                    break;
 
-                                    case 3:
-                                        diagnostics.PreSolverFailedCrateDistance3++;
-                                        break;
+                    //                case 3:
+                    //                    diagnostics.PreSolverFailedCrateDistance3++;
+                    //                    break;
 
-                                    default:
-                                        diagnostics.PreSolverFailedCrateDistance4Plus++;
-                                        break;
-                                }
-                            }
-                            else
-                            {
-                                diagnostics.PreSolverNoDistinctGoalMatching++;
-                            }
-                        }
+                    //                default:
+                    //                    diagnostics.PreSolverFailedCrateDistance4Plus++;
+                    //                    break;
+                    //            }
+                    //        }
+                    //        else
+                    //        {
+                    //            diagnostics.PreSolverNoDistinctGoalMatching++;
+                    //        }
+                    //    }
 
-                        continue;
-                    }
+                    //    continue;
+                    //}
 
                     if (diagnostics != null)
                     {
