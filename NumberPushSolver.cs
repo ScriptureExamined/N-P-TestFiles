@@ -104,12 +104,14 @@ namespace NovaWright.NumberPush.LevelGenerator
                     .Select(crate => crate.Distance)
                     .ToList();
 
-            Queue<SolverState> queue = new();
+            PriorityQueue<SolverState, (int Pushes, int CrateSwitches)> queue =
+                new();
 
-            HashSet<string> visited = new();
+            Dictionary<string, (int Pushes, int CrateSwitches)> bestCosts =
+                new();
 
             HashSet<string> visitedCrateConfigurations =
-    new();
+                new();
 
             StatesExplored = 0;
 
@@ -118,6 +120,8 @@ namespace NovaWright.NumberPush.LevelGenerator
             MaximumLegalPushes = 0;
 
             ZeroLegalPushStates = 0;
+
+            DuplicateStates = 0;
 
             GoalProgressStates.Clear();
 
@@ -130,37 +134,65 @@ namespace NovaWright.NumberPush.LevelGenerator
             DuplicateCrateConfigurations = 0;
 
             SolverState startState =
-    new SolverState(
-        level.PlayerStart,
-        crateStartPositions,
-        0,
-        null,
-        null);
+                new SolverState(
+                    level.PlayerStart,
+                    crateStartPositions,
+                    0,
+                    -1,
+                    0,
+                    null,
+                    null);
 
-            queue.Enqueue(startState);
+            queue.Enqueue(
+                startState,
+                (0, 0));
 
-            visited.Add(
+            string startStateKey =
                 CreateStateKey(
                     level.PlayerStart,
-                    crateStartPositions));
+                    crateStartPositions) +
+                "|-1";
+
+            bestCosts[startStateKey] =
+                (0, 0);
 
             visitedCrateConfigurations.Add(
-    CreateCrateConfigurationKey(
-        crateStartPositions));
+                CreateCrateConfigurationKey(
+                    crateStartPositions));
 
             while (queue.Count > 0)
             {
                 SolverState state =
                     queue.Dequeue();
 
+                string stateKey =
+                    CreateStateKey(
+                        state.PlayerPosition,
+                        state.CratePositions) +
+                    "|" +
+                    state.LastCrateIndex;
+
+                if (!bestCosts.TryGetValue(
+                        stateKey,
+                        out (int Pushes, int CrateSwitches) bestCost))
+                {
+                    continue;
+                }
+
+                if (bestCost.Pushes != state.Pushes ||
+                    bestCost.CrateSwitches != state.CrateSwitches)
+                {
+                    continue;
+                }
+
                 StatesExplored++;
 
                 int cratesOnGoals =
-    CountCratesOnGoals(
-        state.CratePositions);
+                    CountCratesOnGoals(
+                        state.CratePositions);
 
                 if (GoalProgressStates.ContainsKey(
-    cratesOnGoals))
+                        cratesOnGoals))
                 {
                     GoalProgressStates[cratesOnGoals]++;
                 }
@@ -171,17 +203,15 @@ namespace NovaWright.NumberPush.LevelGenerator
 
                 legalPushesForState = 0;
 
-                if (IsComplete(state.CratePositions))
+                if (IsComplete(
+                        state.CratePositions))
                 {
                     return BuildSolution(state);
                 }
 
-                // Build the reusable crate occupancy map for this state.
                 BuildCrateOccupancy(
                     state.CratePositions);
 
-                // Mark every position the player can reach without
-                // moving any crates.
                 int currentReachableVisitId =
                     MarkReachableCells(
                         state.PlayerPosition);
@@ -200,7 +230,7 @@ namespace NovaWright.NumberPush.LevelGenerator
                         new Point(0, -1),
                         currentReachableVisitId,
                         queue,
-                        visited,
+                        bestCosts,
                         visitedCrateConfigurations);
 
                     TryPush(
@@ -210,7 +240,7 @@ namespace NovaWright.NumberPush.LevelGenerator
                         new Point(0, 1),
                         currentReachableVisitId,
                         queue,
-                        visited,
+                        bestCosts,
                         visitedCrateConfigurations);
 
                     TryPush(
@@ -220,7 +250,7 @@ namespace NovaWright.NumberPush.LevelGenerator
                         new Point(-1, 0),
                         currentReachableVisitId,
                         queue,
-                        visited,
+                        bestCosts,
                         visitedCrateConfigurations);
 
                     TryPush(
@@ -230,12 +260,12 @@ namespace NovaWright.NumberPush.LevelGenerator
                         new Point(1, 0),
                         currentReachableVisitId,
                         queue,
-                        visited,
+                        bestCosts,
                         visitedCrateConfigurations);
                 }
 
                 TotalLegalPushes +=
-    legalPushesForState;
+                    legalPushesForState;
 
                 MaximumLegalPushes =
                     Math.Max(
@@ -396,16 +426,15 @@ namespace NovaWright.NumberPush.LevelGenerator
 
             return count;
         }
-
         private void TryPush(
             SolverState state,
             int crateIndex,
             int distance,
             Point direction,
             int currentReachableVisitId,
-            Queue<SolverState> queue,
-HashSet<string> visited,
-HashSet<string> visitedCrateConfigurations)
+            PriorityQueue<SolverState, (int Pushes, int CrateSwitches)> queue,
+            Dictionary<string, (int Pushes, int CrateSwitches)> bestCosts,
+            HashSet<string> visitedCrateConfigurations)
         {
             Point cratePosition =
                 state.CratePositions[crateIndex];
@@ -442,23 +471,24 @@ HashSet<string> visitedCrateConfigurations)
                 }
 
                 if (IsOccupiedByAnyCrate(
-    testPosition))
+                        testPosition))
                 {
                     return;
                 }
 
-                finalPosition = testPosition;
+                finalPosition =
+                    testPosition;
             }
 
             List<Point> newCratePositions =
-    new List<Point>(
-        state.CratePositions);
+                new List<Point>(
+                    state.CratePositions);
 
             newCratePositions[crateIndex] =
                 finalPosition;
 
             if (IsStaticCornerDeadlock(
-                finalPosition))
+                    finalPosition))
             {
                 return;
             }
@@ -468,16 +498,40 @@ HashSet<string> visitedCrateConfigurations)
             Point newPlayerPosition =
                 cratePosition;
 
-            string newStateKey =
-    CreateStateKey(
-        newPlayerPosition,
-        newCratePositions);
+            int newPushes =
+                state.Pushes + 1;
 
-            if (!visited.Add(newStateKey))
+            int newCrateSwitches =
+                state.CrateSwitches;
+
+            if (state.LastCrateIndex != -1 &&
+                state.LastCrateIndex != crateIndex)
             {
-                DuplicateStates++;
-                return;
+                newCrateSwitches++;
             }
+
+            string newStateKey =
+                CreateStateKey(
+                    newPlayerPosition,
+                    newCratePositions) +
+                "|" +
+                crateIndex;
+
+            if (bestCosts.TryGetValue(
+                    newStateKey,
+                    out (int Pushes, int CrateSwitches) existingCost))
+            {
+                if (existingCost.Pushes < newPushes ||
+                    (existingCost.Pushes == newPushes &&
+                     existingCost.CrateSwitches <= newCrateSwitches))
+                {
+                    DuplicateStates++;
+                    return;
+                }
+            }
+
+            bestCosts[newStateKey] =
+                (newPushes, newCrateSwitches);
 
             string newCrateConfigurationKey =
                 CreateCrateConfigurationKey(
@@ -490,8 +544,8 @@ HashSet<string> visitedCrateConfigurations)
             }
 
             int newCratesOnGoals =
-    CountCratesOnGoals(
-        newCratePositions);
+                CountCratesOnGoals(
+                    newCratePositions);
 
             if (newCratesOnGoals >
                 CountCratesOnGoals(
@@ -538,14 +592,18 @@ HashSet<string> visitedCrateConfigurations)
                 };
 
             SolverState newState =
-    new SolverState(
-        newPlayerPosition,
-        newCratePositions,
-        state.Pushes + 1,
-        state,
-        stepData);
+                new SolverState(
+                    newPlayerPosition,
+                    newCratePositions,
+                    newPushes,
+                    crateIndex,
+                    newCrateSwitches,
+                    state,
+                    stepData);
 
-            queue.Enqueue(newState);
+            queue.Enqueue(
+                newState,
+                (newPushes, newCrateSwitches));
         }
 
         private bool IsStaticCornerDeadlock(
@@ -1062,7 +1120,6 @@ HashSet<string> visitedCrateConfigurations)
                     ",",
                     crateIndexes);
         }
-
         private class SolverState
         {
             public Point PlayerPosition { get; }
@@ -1071,16 +1128,22 @@ HashSet<string> visitedCrateConfigurations)
 
             public int Pushes { get; }
 
+            public int LastCrateIndex { get; }
+
+            public int CrateSwitches { get; }
+
             public SolverState? Parent { get; }
 
             public NumberPushSolutionStep? Step { get; }
 
             public SolverState(
-    Point playerPosition,
-    List<Point> cratePositions,
-    int pushes,
-    SolverState? parent,
-    NumberPushSolutionStep? step)
+                Point playerPosition,
+                List<Point> cratePositions,
+                int pushes,
+                int lastCrateIndex,
+                int crateSwitches,
+                SolverState? parent,
+                NumberPushSolutionStep? step)
             {
                 PlayerPosition =
                     playerPosition;
@@ -1090,6 +1153,12 @@ HashSet<string> visitedCrateConfigurations)
 
                 Pushes =
                     pushes;
+
+                LastCrateIndex =
+                    lastCrateIndex;
+
+                CrateSwitches =
+                    crateSwitches;
 
                 Parent =
                     parent;
